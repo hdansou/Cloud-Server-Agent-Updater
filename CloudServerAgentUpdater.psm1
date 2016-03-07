@@ -4,8 +4,8 @@
 #region Variables
 $BaseUrl = 'https://github.com/rackerlabs/openstack-guest-agents-windows-xenserver/releases/download/'
 
-$NovaAgentZipUrl = $BaseUrl + $NovaAgentVersion.Latest + $NovaAgentZip 
-$NovaAgentUpdaterZipUrl = $BaseUrl + $NovaAgentVersion.Latest + $NovaAgentUpdaterZip
+$NovaAgentZipUrl = $BaseUrl + $NovaAgentVersion.Latest +'/'+ $NovaAgentZip 
+$NovaAgentUpdaterZipUrl = $BaseUrl + $NovaAgentVersion.Latest + '/' + $NovaAgentUpdaterZip
 $NovaAgentVersion = @{
     'Latest' = '1.3.0.2'
     'Previous' = @{
@@ -78,7 +78,7 @@ Function Invoke-FileDowload
 function Get-ServiceVersion
 {
     Param(
-        [Array]$Name
+        [Array]$Name = 'RackspaceCloudServersAgent'
     )
     try
     {
@@ -102,33 +102,32 @@ function Get-ServiceVersion
     }
 }
 
-
 function Test-NovaAgentVersion
 {
     Param(
         $VersionLatest
     )
     
-    $VersionInstalled = Get-ServiceVersion
-    if ($VersionLatest -ge $VersionInstalled)
+    $VersionInstalled = Get-ServiceVersion -Name RackspaceCloudServersAgent
+    if ($VersionLatest -gt $VersionInstalled.RackspaceCloudServersAgent)
     {
-        $true
+       [pscustomobject]@{Upgrade = $true}
     }
     else
     {
-        $false
+        [pscustomobject]@{Upgrade =$false}
     }
 }
 
 function Update-NovaAgent
 {
     Param(
-        $LatestNovaAgentVersion
+        $LatestNovaAgentVersion = $NovaAgentVersion.latest
     )
 
     $NovaAgentVersionInstalled = Get-ServiceVersion -Name $NovaAgentService
 
-    if ( -not $(Test-NovaAgentVersion -VersionLatest $NovaAgentVersionLatest) )
+    if ( -not $(Test-NovaAgentVersion -VersionLatest $NovaAgentVersion.Latest).Upgrade )
     {
         Write-Output -InputObject "[$(Get-Date)] Status  :: Nova Agent Version $($NovaAgentVersionInstalled.RackspaceCloudServersAgent)"
         Write-Output -InputObject "[$(Get-Date)] Status  :: Nova Agent Updater Version $($NovaAgentVersionInstalled.RackspaceCloudServersAgentUpdater)"   
@@ -154,7 +153,7 @@ function Update-NovaAgent
                 Join-Path -Path $NovaAgentDir -ChildPath $('Agent' + $($NovaAgentVersionInstalled.RackspaceCloudServersAgent))
             ) -Force
 
-            Write-Output -InputObject "[$(Get-Date)] Status  :: Renaming Agent to $($NovaAgentVersionInstalled.RackspaceCloudServersAgentUpdater)"
+            Write-Output -InputObject "[$(Get-Date)] Status  :: Renaming AgentUpdater to $($NovaAgentVersionInstalled.RackspaceCloudServersAgentUpdater)"
             Rename-Item -Path (Join-Path -Path $NovaAgentDir -ChildPath 'AgentUpdater') -NewName (
                 Join-Path -Path $NovaAgentDir -ChildPath $('AgentUpdater' + $($NovaAgentVersionInstalled.RackspaceCloudServersAgentUpdater))
             ) -Force
@@ -168,6 +167,11 @@ function Update-NovaAgent
             Invoke-Unzip -ZipFile (Join-Path -Path $TempDir -ChildPath 'UpdateService.zip') -Destination (
                 Join-Path -Path $NovaAgentDir -ChildPath 'AgentUpdater'
             )
+
+            Write-Output -InputObject "[$(Get-Date)] Status  :: Cloning the AgentLog from $('Agent' + $($NovaAgentVersionInstalled.RackspaceCloudServersAgent)) to Agent"
+            Copy-Item -Path (Join-Path -Path $NovaAgentDir -ChildPath $('Agent' + $($NovaAgentVersionInstalled.RackspaceCloudServersAgent) + "\Agentlog.txt")) -Destination (
+                Join-Path -Path $NovaAgentDir -ChildPath $('Agent\Agentlog.txt')) -Force
+
         }
     
         Write-Output -InputObject "[$(Get-Date)] Status  :: Removing UpdateService.zip to AgentUpdater.zip"
@@ -184,7 +188,6 @@ function Update-NovaAgent
         }
     }
 }
-
 #endregion Function
 
 
