@@ -1,11 +1,7 @@
 #requires -Version 1
 
-
 #region Variables
 $BaseUrl = 'https://github.com/rackerlabs/openstack-guest-agents-windows-xenserver/releases/download/'
-
-$NovaAgentZipUrl = $BaseUrl + $NovaAgentVersion.Latest +'/'+ $NovaAgentZip 
-$NovaAgentUpdaterZipUrl = $BaseUrl + $NovaAgentVersion.Latest + '/' + $NovaAgentUpdaterZip
 $NovaAgentVersion = @{
     'Latest' = '1.3.0.3'
     'Previous' = @{
@@ -17,8 +13,15 @@ $NovaAgentVersion = @{
 }
 
 
+
 $NovaAgentZip = 'AgentService.zip'
 $NovaAgentUpdaterZip = 'UpdateService.zip'
+
+
+$NovaAgentZipUrl = $BaseUrl + $NovaAgentVersion.Latest +'/'+ $NovaAgentZip 
+$NovaAgentUpdaterZipUrl = $BaseUrl + $NovaAgentVersion.Latest + '/' + $NovaAgentUpdaterZip
+
+
 $TempDir = 'C:\Windows\Temp'
 $NovaAgentDir = 'C:\Program Files\Rackspace\Cloud Servers\'
 $NovaAgentService = @('RackspaceCloudServersAgent', 'RackspaceCloudServersAgentUpdater')
@@ -37,7 +40,8 @@ function Invoke-Unzip
     {
         if(-not (Test-Path -Path $Destination))
         {
-            New-Item -ItemType directory -Path $Destination -Force
+            Write-Output -InputObject "[$(Get-Date)] Error  :: Creating the Directory $Destination"
+            New-Item -ItemType directory -Path $Destination -Force | Out-Null
         } 
 
         $sh = New-Object -ComObject shell.application
@@ -62,6 +66,7 @@ Function Invoke-FileDowload
         New-Item -Path $localpath -type directory > $null
     }
 
+    $Url
     $webclient = New-Object -TypeName System.Net.WebClient
 
     try 
@@ -106,11 +111,11 @@ function Get-ServiceVersion
 function Test-NovaAgentVersion
 {
     Param(
-        $VersionLatest
+        [String]$VersionLatest
     )
     
     $VersionInstalled = Get-ServiceVersion -Name RackspaceCloudServersAgent
-    if ($VersionLatest -gt $VersionInstalled.RackspaceCloudServersAgent)
+    if (($VersionLatest.Replace('.','')) -gt ($VersionInstalled.RackspaceCloudServersAgent.Replace('.','')))
     {
        [pscustomobject]@{Upgrade = $true}
     }
@@ -130,11 +135,14 @@ function Update-NovaAgent
 
     if ( -not $(Test-NovaAgentVersion -VersionLatest $NovaAgentVersion.Latest).Upgrade )
     {
+        Write-Output -InputObject "[$(Get-Date)] Status  :: The Agent Version is Current"
         Write-Output -InputObject "[$(Get-Date)] Status  :: Nova Agent Version $($NovaAgentVersionInstalled.RackspaceCloudServersAgent)"
         Write-Output -InputObject "[$(Get-Date)] Status  :: Nova Agent Updater Version $($NovaAgentVersionInstalled.RackspaceCloudServersAgentUpdater)"   
     }
     else
     {
+        Write-Output -InputObject "[$(Get-Date)] Status  :: Starting the Agent Upgrade"
+
         if((Get-Service -Name $NovaAgentService).Status -ne 'Stopped')
         { 
             Stop-Service -Name $NovaAgentService -Force -ErrorAction SilentlyContinue
